@@ -24,12 +24,12 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 @Autonomous(name = "Auto26", group = "Autonomous")
 public class Auto26 extends LinearOpMode {
     public class arm {
-        private DcMotor arm_motor;
+        private DcMotor arm_long;
 
         public arm(HardwareMap hardwareMap) {
-            arm_motor = hardwareMap.get(DcMotor.class, "arm_motor");
-            arm_motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            arm_motor.setDirection(DcMotorSimple.Direction.REVERSE);
+            arm_long = hardwareMap.get(DcMotor.class, "arm_long");
+            arm_long.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            arm_long.setDirection(DcMotorSimple.Direction.REVERSE);
         }
 
         public class armUp implements Action {
@@ -41,19 +41,19 @@ public class Auto26 extends LinearOpMode {
             public boolean run(@NonNull TelemetryPacket packet) {
                 // powers on motor, if it is not on
                 if (!initialized) {
-                    arm_motor.setPower(0.8);
+                    arm_long.setPower(1);
                     initialized = true;
                 }
 
                 // checks arm's current position
-                double pos = arm_motor.getCurrentPosition();
+                double pos = arm_long.getCurrentPosition();
                 packet.put("armPos", pos);
-                if (pos < 3000.0) {
+                if (pos < 2437.5) {
                     // true causes the action to rerun
                     return true;
                 } else {
                     // false stops action rerun
-                    arm_motor.setPower(0);
+                    arm_long.setPower(0.05);
                     return false;
                 }
                 // overall, the action powers the lift until it surpasses
@@ -69,17 +69,20 @@ public class Auto26 extends LinearOpMode {
 
             @Override
             public boolean run(@NonNull TelemetryPacket packet) {
+                telemetry.addData("viper slide", arm_long.getCurrentPosition());
+                telemetry.update();
                 if (!initialized) {
-                    arm_motor.setPower(-0.8);
+                    arm_long.setPower(-1);
                     initialized = true;
                 }
 
-                double pos = arm_motor.getCurrentPosition();
+                double pos = arm_long.getCurrentPosition();
                 packet.put("armPos", pos);
-                if (pos > 100.0) {
+                if (pos > 350) {
+
                     return true;
                 } else {
-                    arm_motor.setPower(0);
+                    arm_long.setPower(0.05);
                     return false;
                 }
             }
@@ -88,113 +91,115 @@ public class Auto26 extends LinearOpMode {
         public Action armDown() {
             return new armDown();
         }
-    }
+        public class armDownUp implements Action {
+            private boolean initialized = false;
 
-    // claw class
-    public class intake {
-        private CRServo leftIntake;
-        private CRServo rightIntake;
-
-        public intake(HardwareMap hardwareMap) {
-            leftIntake = hardwareMap.get(CRServo.class, "leftIntake");
-            rightIntake = hardwareMap.get(CRServo.class, "rightIntake");
-        }
-
-        // within the Claw class
-        public class In implements Action {
             @Override
             public boolean run(@NonNull TelemetryPacket packet) {
-                rightIntake.setPower(-1.0);
-                rightIntake.setPower(1.0);
-                return false;
+                telemetry.addData("viper slide", arm_long.getCurrentPosition());
+                telemetry.update();
+                if (!initialized) {
+                    arm_long.setPower(1);
+                    initialized = true;
+                }
+
+                double pos = arm_long.getCurrentPosition();
+                packet.put("armPos", pos);
+                if (pos < 200) {
+                    return true;
+                } else {
+                    arm_long.setPower(0.05);
+                    return false;
+                }
             }
         }
 
-        public Action In() {
-            return new In();
+        public Action armDownUp() {
+            return new armDownUp();
         }
+        public class armStop implements Action {
+            private boolean initialized = false;
 
-        public class Out implements Action {
             @Override
             public boolean run(@NonNull TelemetryPacket packet) {
-                rightIntake.setPower(1.0);
-                rightIntake.setPower(-1.0);
-                return false;
+
+                telemetry.addData("viper slide", arm_long.getCurrentPosition());
+                telemetry.update();
+                if (!initialized) {
+                    arm_long.setPower(-1);
+                    initialized = true;
+                }
+
+                double pos = arm_long.getCurrentPosition();
+                packet.put("armPos", pos);
+                if (pos > 1838) {
+                    return true;
+                } else {
+                    arm_long.setPower(0.05);
+                    return false;
+                }
             }
         }
 
-        public Action Out() {
-            return new Out();
+        public Action armStop() {
+            return new armStop();
         }
     }
     @Override
     public void runOpMode() {
         // instantiate your MecanumDrive at a particular pose.
-        Pose2d initialPose = new Pose2d(0, 0, Math.toRadians(90));
+        Pose2d initialPose = new Pose2d(-20, 60, Math.toRadians(90));
         MecanumDrive drive = new MecanumDrive(hardwareMap, initialPose);
-        // make a Claw instance
-        intake rightIntake = new intake(hardwareMap);
-        // make a Lift instance
-        arm arm_motor = new arm(hardwareMap);
 
-        // vision here that outputs position
-        int visionOutputPosition = 1;
+        arm arm_long = new arm(hardwareMap);
         // actionBuilder builds from the drive steps passed to it
         TrajectoryActionBuilder tab1 = drive.actionBuilder(initialPose)
-                .lineToYSplineHeading(33, Math.toRadians(0))
-                .waitSeconds(2)
-                .setTangent(Math.toRadians(90))
-                .lineToY(48)
-                .setTangent(Math.toRadians(0))
-                .lineToX(32)
-                .strafeTo(new Vector2d(44.5, 30))
-                .turn(Math.toRadians(180))
-                .lineToX(47.5)
-                .waitSeconds(3);
+                .afterTime(0, arm_long.armUp())
+                .strafeTo(new Vector2d(-3, 32))
+                .stopAndAdd(arm_long.armStop())
+                .strafeTo(new Vector2d(-3, 35))
+                //clipped 1
+                .strafeTo(new Vector2d(-36, 35))
+                .afterTime(0, arm_long.armDown())
+                .strafeTo(new Vector2d(-36, 10))
+                .strafeTo(new Vector2d(-45, 10))
+                .strafeTo(new Vector2d(-45, 55))
+                .strafeTo(new Vector2d(-45, 10))
+                .strafeTo(new Vector2d(-55, 10))
+                .strafeTo(new Vector2d(-55, 55))
+                .strafeToSplineHeading(new Vector2d(-55, 40), Math.toRadians(0))
+                //pushed back 2
+                .strafeTo(new Vector2d(-55, 52))
+                .strafeTo(new Vector2d(-61, 52))
+                .afterTime(0, arm_long.armUp())
+                //took clip from wall
+                .strafeToSplineHeading(new Vector2d(-3, 40), Math.toRadians(90))
+                .strafeTo(new Vector2d(-3, 32))
+                .stopAndAdd(arm_long.armStop())
+                .strafeTo(new Vector2d(-3, 35))
+                //clipped # 2
+                .afterTime(0, arm_long.armDown())
+                .strafeToSplineHeading(new Vector2d(-61, 52), Math.toRadians(0))
+                //took clip
+                .afterTime(0, arm_long.armUp())
+                .strafeToSplineHeading(new Vector2d(-3, 40), Math.toRadians(90))
+                .strafeTo(new Vector2d(-3, 32))
+                .stopAndAdd(arm_long.armStop())
+                .strafeTo(new Vector2d(-3, 35))
+                //clipped # 3
+                .strafeTo(new Vector2d(-55, 60));
 
-        TrajectoryActionBuilder tab2 = drive.actionBuilder(initialPose)
-                .lineToY(37)
-                .setTangent(Math.toRadians(0))
-                .lineToX(18)
-                .waitSeconds(3)
-                .setTangent(Math.toRadians(0))
-                .lineToXSplineHeading(46, Math.toRadians(180))
-                .waitSeconds(3);
-
-        TrajectoryActionBuilder tab3 = drive.actionBuilder(initialPose)
-                .lineToYSplineHeading(33, Math.toRadians(180))
-                .waitSeconds(2)
-                .strafeTo(new Vector2d(46, 30))
-                .waitSeconds(3);
-
-        Action trajectoryActionCloseOut = tab1.endTrajectory().fresh()
-                .strafeTo(new Vector2d(48, 12))
-                .build();
-        while (!isStopRequested() && !opModeIsActive()) {
-            int position = visionOutputPosition;
-            telemetry.addData("Position during Init", position);
-            telemetry.update();
-        }
-        int startPosition = visionOutputPosition;
-        telemetry.addData("Starting Position", startPosition);
-        telemetry.update();
+        Action trajectoryActionCloseOut = tab1.endTrajectory().build();
         waitForStart();
+
         if (isStopRequested()) return;
-        Action trajectoryActionChosen;
-        if (startPosition == 1) {
-            trajectoryActionChosen = tab1.build();
-        } else if (startPosition == 2) {
-            trajectoryActionChosen = tab2.build();
-        } else {
-            trajectoryActionChosen = tab3.build();
-        }
+        Action trajectoryActionChosen = tab1.build();
         Actions.runBlocking(
                 new SequentialAction(
                         trajectoryActionChosen,
-                        arm_motor.armUp(),
-                        arm_motor.armDown(),
                         trajectoryActionCloseOut
                 )
         );
+        telemetry.update();
     }
 }
